@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tune Task Context"
+  short_description: "Give each task the right amount of memory"
+  default_prompt: "Use $tune-task-context to choose and apply a safe context window for this task."
