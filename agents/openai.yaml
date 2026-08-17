@@ -1,4 +1,4 @@
 interface:
-  display_name: "Tune Task Context"
-  short_description: "Give each task the right amount of memory"
-  default_prompt: "Use $tune-task-context to choose and apply a safe context window for this task."
+  display_name: "上下文"
+  short_description: "自动分析项目规模并精确设置下一次任务的安全上下文窗口"
+  default_prompt: "使用 $tune-task-context 分析当前项目，并为下一次任务选择安全的上下文窗口。"

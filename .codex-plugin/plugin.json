@@ -1,0 +1,46 @@
+{
+  "name": "tune-task-context",
+  "version": "0.2.0+codex.20260817120721",
+  "description": "Analyze a project before work starts and choose a safe Codex context window automatically or manually.",
+  "author": {
+    "name": "Yuzhang Cao",
+    "url": "https://github.com/yuzhang-cao"
+  },
+  "homepage": "https://github.com/yuzhang-cao/tune-task-context",
+  "repository": "https://github.com/yuzhang-cao/tune-task-context",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "context-window",
+    "context-management",
+    "mcp-app",
+    "productivity"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "\u4e0a\u4e0b\u6587",
+    "shortDescription": "\u81ea\u52a8\u4f30\u7b97\u6216\u7cbe\u786e\u8bbe\u7f6e\u4efb\u52a1\u4e0a\u4e0b\u6587\u7a97\u53e3",
+    "longDescription": "\u5728\u4efb\u52a1\u5f00\u59cb\u524d\u5206\u6790\u9879\u76ee\u89c4\u6a21\uff0c\u6216\u901a\u8fc7\u6ed1\u6746\u4e0e\u7cbe\u786e\u503c\u4e3a\u4e0b\u4e00\u6b21\u65b0\u5efa\u6216\u6062\u590d\u7684\u4efb\u52a1\u8bbe\u7f6e\u4e0a\u4e0b\u6587\u7a97\u53e3\u3002",
+    "developerName": "Yuzhang Cao",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/yuzhang-cao/tune-task-context",
+    "defaultPrompt": [
+      "\u6253\u5f00\u4e0a\u4e0b\u6587\u8bbe\u7f6e\u5e76\u81ea\u52a8\u5206\u6790\u5f53\u524d\u9879\u76ee",
+      "\u5c06\u5f53\u524d\u9879\u76ee\u4e0b\u4e00\u6b21\u4efb\u52a1\u7684\u4e0a\u4e0b\u6587\u8bbe\u4e3a 512K",
+      "\u68c0\u67e5\u5f53\u524d\u6a21\u578b\u53ef\u7528\u7684\u4e0a\u4e0b\u6587\u4e0a\u9650"
+    ],
+    "brandColor": "#111111",
+    "composerIcon": "./assets/context-gauge.svg",
+    "logo": "./assets/context-gauge.svg",
+    "screenshots": [
+      "./assets/context-control-auto.png",
+      "./assets/context-control.png"
+    ]
+  }
+}

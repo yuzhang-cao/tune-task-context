@@ -12,6 +12,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,10 @@ MIN_CONTEXT_TOKENS = 32_000
 COMPACT_TARGET = 128_000
 LARGE_TARGET = 512_000
 SKIP_DIRS = {".git", ".hg", ".svn", ".venv", "node_modules", "build", "dist"}
+CONTEXT_CONFIG_KEYS = (
+    "model_context_window",
+    "model_auto_compact_token_limit",
+)
 
 HEAVY_MARKERS = (
     "entire repository",
@@ -166,6 +171,109 @@ def nearest_project_config(cwd: Path) -> Path | None:
         if candidate.is_file():
             return candidate
     return None
+
+
+def project_root(cwd: Path) -> Path:
+    """Return the enclosing Git root, or cwd when no Git worktree is present."""
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(cwd), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+        if completed.returncode == 0:
+            candidate = Path(completed.stdout.strip()).resolve()
+            if candidate.is_dir():
+                return candidate
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return cwd.resolve()
+
+
+def write_context_config(path: Path, window: int, compact_at: int) -> None:
+    """Patch only the two top-level context keys and preserve the rest of the TOML file."""
+    desired = {
+        "model_context_window": window,
+        "model_auto_compact_token_limit": compact_at,
+    }
+    try:
+        original = path.read_text(encoding="utf-8") if path.exists() else ""
+    except OSError as exc:
+        raise RuntimeError(f"could not read config {path}: {exc}") from exc
+
+    lines = original.splitlines(keepends=True)
+    section_index = next(
+        (index for index, line in enumerate(lines) if line.lstrip().startswith("[")),
+        len(lines),
+    )
+    key_pattern = re.compile(
+        r"^(\s*)(model_context_window|model_auto_compact_token_limit)"
+        r"(\s*=\s*)([^#\r\n]*?)(\s*(?:#.*)?)(\r?\n?)$"
+    )
+    seen: set[str] = set()
+    for index in range(section_index):
+        match = key_pattern.match(lines[index])
+        if not match:
+            continue
+        indent, key, separator, _, comment, ending = match.groups()
+        lines[index] = f"{indent}{key}{separator}{desired[key]}{comment}{ending}"
+        seen.add(key)
+
+    missing = [key for key in CONTEXT_CONFIG_KEYS if key not in seen]
+    if missing:
+        if (
+            section_index > 0
+            and lines[section_index - 1]
+            and not lines[section_index - 1].endswith(("\n", "\r"))
+        ):
+            lines[section_index - 1] += "\n"
+        inserted = [f"{key} = {desired[key]}\n" for key in missing]
+        if section_index < len(lines) and (not inserted or inserted[-1].strip()):
+            inserted.append("\n")
+        lines[section_index:section_index] = inserted
+
+    rendered = "".join(lines)
+    if not rendered.endswith("\n"):
+        rendered += "\n"
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        previous_mode = path.stat().st_mode & 0o777 if path.exists() else None
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+            handle.write(rendered)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if previous_mode is not None:
+            temp_path.chmod(previous_mode)
+        os.replace(temp_path, path)
+    except OSError as exc:
+        try:
+            if "temp_path" in locals():
+                temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise RuntimeError(f"could not update config {path}: {exc}") from exc
+
+
+def apply_plan_to_config(plan: ContextPlan, scope: str, cwd: Path) -> Path:
+    if scope == "project":
+        target = project_root(cwd) / ".codex" / "config.toml"
+    elif scope == "user":
+        target = codex_home() / "config.toml"
+    else:
+        raise RuntimeError(f"unsupported config scope: {scope}")
+    write_context_config(target, plan.requested_tokens, plan.compact_at_tokens)
+    return target
 
 
 def load_catalog(path: Path) -> list[dict[str, Any]]:
@@ -401,7 +509,10 @@ def build_plan(args: argparse.Namespace) -> ContextPlan:
             f"{compact_requested:,} to safe limit {compact_at:,}"
         )
 
-    cdx_binary = resolve_cdx_binary(args.cdx_bin, args.dry_run)
+    cdx_binary = resolve_cdx_binary(
+        args.cdx_bin,
+        args.dry_run or bool(args.apply_config),
+    )
     config_args = [
         "-m",
         limits.slug,
@@ -452,7 +563,17 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--cwd", default=os.getcwd(), help="working directory to inspect and pass to cdx")
     result.add_argument("--models-json", help="path to a Codex models catalog JSON file")
     result.add_argument("--cdx-bin", help="path or command name for cdx")
-    result.add_argument("--dry-run", action="store_true", help="print the plan without launching cdx")
+    output_mode = result.add_mutually_exclusive_group()
+    output_mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the plan without launching cdx",
+    )
+    output_mode.add_argument(
+        "--apply-config",
+        choices=("project", "user"),
+        help="write the selected window for future tasks instead of launching cdx",
+    )
     result.add_argument("prompt", nargs=argparse.REMAINDER, help="initial task prompt after --")
     return result
 
@@ -466,6 +587,28 @@ def main() -> int:
     except (RuntimeError, ValueError) as exc:
         print(f"context preflight failed: {exc}", file=sys.stderr)
         return 2
+
+    if args.apply_config:
+        try:
+            target = apply_plan_to_config(
+                plan,
+                args.apply_config,
+                Path(args.cwd).expanduser().resolve(),
+            )
+        except RuntimeError as exc:
+            print(f"context apply failed: {exc}", file=sys.stderr)
+            return 2
+        payload = asdict(plan)
+        payload.update(
+            {
+                "applied_to": str(target),
+                "applied_scope": args.apply_config,
+                "applies_to": "future_new_or_resumed_tasks",
+                "command_display": shlex.join(plan.command),
+            }
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
 
     if args.dry_run:
         payload = asdict(plan)

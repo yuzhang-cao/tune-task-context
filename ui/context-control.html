@@ -1,0 +1,1180 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>上下文</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page: transparent;
+        --surface: #ffffff;
+        --surface-subtle: #f7f7f7;
+        --surface-selected: #ededed;
+        --text: #161616;
+        --text-secondary: #666666;
+        --text-tertiary: #8a8a8a;
+        --border: #dedede;
+        --border-strong: #c8c8c8;
+        --primary: #171717;
+        --primary-text: #ffffff;
+        --focus: #5b8def;
+        --success: #16734a;
+        --danger: #b42318;
+        --heat-amber: #f59e0b;
+        --heat-orange: #f97316;
+        --heat-red: #ea580c;
+        --radius: 12px;
+        --control-radius: 9px;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --surface: #202020;
+          --surface-subtle: #292929;
+          --surface-selected: #353535;
+          --text: #f4f4f4;
+          --text-secondary: #b8b8b8;
+          --text-tertiary: #929292;
+          --border: #3d3d3d;
+          --border-strong: #555555;
+          --primary: #f2f2f2;
+          --primary-text: #171717;
+          --focus: #7ba3f5;
+          --success: #56b88a;
+          --danger: #ff7b72;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        color: inherit;
+      }
+
+      .widget {
+        width: min(100%, 680px);
+        margin: 0 auto;
+        padding: 1px;
+      }
+
+      .context-trigger {
+        width: 100%;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 10px 12px;
+        cursor: pointer;
+        text-align: left;
+        transition: border-color 120ms ease, background 120ms ease;
+      }
+
+      .context-trigger:hover {
+        border-color: var(--border-strong);
+      }
+
+      .context-trigger:focus-visible,
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      .gauge {
+        width: 22px;
+        height: 22px;
+        flex: 0 0 auto;
+      }
+
+      .trigger-label {
+        font-weight: 620;
+        letter-spacing: -0.01em;
+      }
+
+      .trigger-value {
+        margin-left: auto;
+        color: var(--text-secondary);
+        font-size: 13px;
+      }
+
+      .chevron {
+        width: 16px;
+        height: 16px;
+        color: var(--text-secondary);
+        transition: transform 160ms ease;
+      }
+
+      .widget[data-expanded="true"] .chevron {
+        transform: rotate(180deg);
+      }
+
+      .panel {
+        margin-top: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .widget[data-expanded="false"] .panel {
+        display: none;
+      }
+
+      .content {
+        padding: 18px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        margin: 3px 0 16px;
+        color: var(--text-secondary);
+        font-size: 13px;
+      }
+
+      .segmented {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface-subtle);
+      }
+
+      .segment {
+        min-height: 34px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 560;
+      }
+
+      .segment[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: 0 0 0 1px var(--border);
+      }
+
+      .view {
+        margin-top: 16px;
+      }
+
+      .view[hidden] {
+        display: none;
+      }
+
+      .recommendation {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .recommendation-icon {
+        --needle-angle: -105deg;
+        --dash-offset: 100;
+        --heat-color: var(--text-secondary);
+        position: relative;
+        width: 54px;
+        height: 54px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        background: var(--surface);
+        isolation: isolate;
+        transition: border-color 260ms ease, box-shadow 260ms ease;
+      }
+
+      .meter-svg {
+        position: relative;
+        z-index: 2;
+        width: 48px;
+        height: 42px;
+        overflow: visible;
+      }
+
+      .meter-track,
+      .meter-heat {
+        fill: none;
+        stroke-width: 4;
+        stroke-linecap: round;
+      }
+
+      .meter-track {
+        stroke: var(--border);
+      }
+
+      .meter-heat {
+        stroke: var(--heat-color);
+        stroke-dasharray: 100;
+        stroke-dashoffset: var(--dash-offset);
+        transition: stroke 420ms ease, stroke-dashoffset 720ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .meter-tick {
+        stroke: var(--text-tertiary);
+        stroke-width: 1.4;
+        stroke-linecap: round;
+      }
+
+      .meter-needle {
+        transform: rotate(var(--needle-angle));
+        transform-origin: 32px 38px;
+        transition: transform 720ms cubic-bezier(0.2, 0.9, 0.25, 1.15);
+      }
+
+      .meter-needle-line {
+        stroke: var(--text);
+        stroke-width: 2.5;
+        stroke-linecap: round;
+      }
+
+      .meter-hub {
+        fill: var(--text);
+        stroke: var(--surface);
+        stroke-width: 2;
+      }
+
+      .heat-glow {
+        position: absolute;
+        z-index: 0;
+        inset: 5px;
+        border-radius: 50%;
+        background: rgba(249, 115, 22, 0.13);
+        filter: blur(8px);
+        opacity: 0;
+        transition: opacity 300ms ease;
+      }
+
+      .flames,
+      .embers {
+        position: absolute;
+        z-index: 3;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 220ms ease;
+      }
+
+      .flame {
+        position: absolute;
+        right: 7px;
+        top: -4px;
+        width: 7px;
+        height: 15px;
+        border-radius: 70% 30% 68% 32% / 74% 42% 58% 26%;
+        background: linear-gradient(to top, var(--heat-red), var(--heat-amber) 72%, rgba(255, 255, 255, 0.95));
+        transform: rotate(10deg);
+        transform-origin: 50% 100%;
+      }
+
+      .flame:nth-child(2) {
+        right: 15px;
+        top: 1px;
+        width: 5px;
+        height: 11px;
+        animation-delay: -180ms;
+      }
+
+      .flame:nth-child(3) {
+        right: 2px;
+        top: 6px;
+        width: 4px;
+        height: 9px;
+        animation-delay: -320ms;
+      }
+
+      .ember {
+        position: absolute;
+        right: 8px;
+        top: 2px;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--heat-orange);
+        opacity: 0;
+      }
+
+      .ember:nth-child(2) {
+        right: 17px;
+        top: 7px;
+        width: 2px;
+        height: 2px;
+        animation-delay: -430ms;
+      }
+
+      .ember:nth-child(3) {
+        right: 3px;
+        top: 12px;
+        width: 2px;
+        height: 2px;
+        animation-delay: -760ms;
+      }
+
+      .recommendation-icon[data-heat="warm"] {
+        --heat-color: var(--heat-amber);
+        border-color: rgba(245, 158, 11, 0.38);
+      }
+
+      .recommendation-icon[data-heat="hot"] {
+        --heat-color: var(--heat-orange);
+        border-color: rgba(249, 115, 22, 0.52);
+        box-shadow: 0 0 14px rgba(249, 115, 22, 0.12);
+      }
+
+      .recommendation-icon[data-heat="hot"] .heat-glow,
+      .recommendation-icon[data-heat="fire"] .heat-glow {
+        opacity: 1;
+      }
+
+      .recommendation-icon[data-heat="hot"] .embers {
+        opacity: 0.55;
+      }
+
+      .recommendation-icon[data-heat="hot"] .ember:nth-child(n + 2) {
+        animation: ember-rise 1.5s ease-out infinite;
+      }
+
+      .recommendation-icon[data-heat="fire"] {
+        --heat-color: var(--heat-red);
+        border-color: rgba(234, 88, 12, 0.68);
+        box-shadow: 0 0 18px rgba(249, 115, 22, 0.22);
+      }
+
+      .recommendation-icon[data-heat="fire"] .meter-needle-line,
+      .recommendation-icon[data-heat="fire"] .meter-hub {
+        stroke: var(--heat-red);
+      }
+
+      .recommendation-icon[data-heat="fire"] .meter-hub {
+        fill: var(--heat-red);
+      }
+
+      .recommendation-icon[data-heat="fire"] .flames,
+      .recommendation-icon[data-heat="fire"] .embers {
+        opacity: 1;
+      }
+
+      .recommendation-icon[data-heat="fire"] .flame {
+        animation: flame-flicker 820ms ease-in-out infinite alternate;
+      }
+
+      .recommendation-icon[data-heat="fire"] .ember {
+        animation: ember-rise 1.35s ease-out infinite;
+      }
+
+      @keyframes flame-flicker {
+        0% {
+          transform: translateY(1px) rotate(7deg) scaleX(0.88) scaleY(0.92);
+        }
+        100% {
+          transform: translateY(-2px) rotate(14deg) scaleX(1.06) scaleY(1.12);
+        }
+      }
+
+      @keyframes ember-rise {
+        0% {
+          opacity: 0;
+          transform: translate(0, 3px) scale(0.8);
+        }
+        25% {
+          opacity: 0.9;
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-4px, -17px) scale(0.25);
+        }
+      }
+
+      .eyeline {
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .summary {
+        margin-top: 2px;
+        font-size: 13px;
+      }
+
+      .recommendation-value {
+        font-size: 24px;
+        font-weight: 650;
+        letter-spacing: -0.04em;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .metric {
+        min-width: 0;
+      }
+
+      .metric-label {
+        color: var(--text-tertiary);
+        font-size: 11px;
+      }
+
+      .metric-value {
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .field-label {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        font-size: 13px;
+        font-weight: 590;
+      }
+
+      .detail-meter {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .detail-meter-copy {
+        margin-right: auto;
+      }
+
+      .detail-meter-copy span {
+        display: block;
+        color: var(--text-secondary);
+        font-size: 11px;
+      }
+
+      .detail-meter-copy strong {
+        display: block;
+        margin-top: 1px;
+        font-size: 20px;
+        font-weight: 650;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.03em;
+      }
+
+      .field-hint {
+        color: var(--text-tertiary);
+        font-size: 11px;
+        font-weight: 400;
+      }
+
+      .slider-wrap {
+        position: relative;
+        padding: 4px 4px 0;
+      }
+
+      .slider-effect {
+        position: absolute;
+        z-index: 2;
+        right: -1px;
+        top: -8px;
+        width: 24px;
+        height: 28px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 180ms ease;
+      }
+
+      .slider-effect::before {
+        content: "";
+        position: absolute;
+        right: 4px;
+        bottom: 2px;
+        width: 13px;
+        height: 13px;
+        border: 2px solid var(--heat-orange);
+        border-radius: 50%;
+        box-shadow: 0 0 10px rgba(249, 115, 22, 0.38);
+      }
+
+      .slider-effect span {
+        position: absolute;
+        right: 7px;
+        bottom: 13px;
+        width: 6px;
+        height: 12px;
+        border-radius: 70% 30% 68% 32% / 74% 42% 58% 26%;
+        background: linear-gradient(to top, var(--heat-red), var(--heat-amber), #fff7ed);
+        transform-origin: 50% 100%;
+        animation: flame-flicker 760ms ease-in-out infinite alternate;
+      }
+
+      .slider-wrap[data-heat="hot"] .slider-effect,
+      .slider-wrap[data-heat="fire"] .slider-effect {
+        opacity: 1;
+      }
+
+      .slider-wrap[data-heat="hot"] .slider-effect span {
+        opacity: 0.35;
+        transform: scale(0.7);
+      }
+
+      .slider {
+        width: 100%;
+        margin: 0;
+        accent-color: var(--primary);
+        cursor: pointer;
+      }
+
+      .ticks {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        margin-top: 4px;
+      }
+
+      .tick {
+        border: 0;
+        background: transparent;
+        padding: 4px 0;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tick:first-child {
+        text-align: left;
+      }
+
+      .tick:last-child {
+        text-align: right;
+      }
+
+      .tick[data-active="true"] {
+        color: var(--text);
+        font-weight: 620;
+      }
+
+      .slider-wrap[data-heat="fire"] .tick:last-child[data-active="true"] {
+        color: var(--heat-red);
+      }
+
+      .exact-row {
+        display: grid;
+        grid-template-columns: 1fr minmax(180px, 240px);
+        align-items: center;
+        gap: 16px;
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+      }
+
+      .exact-copy strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 590;
+      }
+
+      .exact-copy span {
+        display: block;
+        margin-top: 2px;
+        color: var(--text-tertiary);
+        font-size: 11px;
+      }
+
+      .input-shell {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--control-radius);
+        background: var(--surface);
+      }
+
+      .input-shell:focus-within {
+        border-color: var(--focus);
+        box-shadow: 0 0 0 1px var(--focus);
+      }
+
+      .exact-input {
+        min-width: 0;
+        height: 38px;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        padding: 0 10px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .input-unit {
+        padding: 0 10px;
+        border-left: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: 11px;
+      }
+
+      .scope {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .status {
+        min-height: 18px;
+        margin-top: 8px;
+        color: var(--text-tertiary);
+        font-size: 11px;
+      }
+
+      .status[data-tone="success"] {
+        color: var(--success);
+      }
+
+      .status[data-tone="error"] {
+        color: var(--danger);
+      }
+
+      .status[data-tone="warning"] {
+        color: var(--heat-red);
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 12px 18px 16px;
+        border-top: 1px solid var(--border);
+      }
+
+      .action {
+        min-height: 38px;
+        border-radius: var(--control-radius);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 590;
+      }
+
+      .secondary {
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+      }
+
+      .primary {
+        border: 1px solid var(--primary);
+        background: var(--primary);
+        color: var(--primary-text);
+      }
+
+      .action:disabled {
+        cursor: wait;
+        opacity: 0.55;
+      }
+
+      @media (max-width: 520px) {
+        .content {
+          padding: 16px 14px;
+        }
+
+        .recommendation {
+          grid-template-columns: auto 1fr;
+        }
+
+        .recommendation-value {
+          grid-column: 2;
+          font-size: 21px;
+        }
+
+        .metrics {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .exact-row {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+
+        .actions {
+          padding-inline: 14px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="widget" id="widget" data-expanded="true" aria-label="上下文设置">
+      <button class="context-trigger" id="context-trigger" type="button" aria-expanded="true" aria-controls="context-panel">
+        <svg class="gauge" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 15a8 8 0 1 1 16 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <path d="M12 7v2M6.7 9.2l1.4 1.4M17.3 9.2l-1.4 1.4M12 15l4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <circle cx="12" cy="15" r="1.5" fill="currentColor"/>
+        </svg>
+        <span class="trigger-label">上下文</span>
+        <span class="trigger-value" id="trigger-value">自动</span>
+        <svg class="chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="m4 6 4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="panel" id="context-panel">
+        <div class="content">
+          <h1 class="title">上下文</h1>
+          <p class="subtitle">为下一次新建或恢复的任务选择窗口</p>
+
+          <div class="segmented" role="group" aria-label="上下文选择方式">
+            <button class="segment" id="mode-auto" type="button" aria-pressed="true">自动</button>
+            <button class="segment" id="mode-detail" type="button" aria-pressed="false">详情</button>
+          </div>
+
+          <div class="view" id="auto-view">
+            <div class="recommendation">
+              <div class="recommendation-icon power-gauge" id="auto-gauge" data-heat="calm" aria-label="自动建议指针表">
+                <span class="heat-glow"></span>
+                <svg class="meter-svg" viewBox="0 0 64 48" fill="none" aria-hidden="true">
+                  <path class="meter-track" pathLength="100" d="M8 38a24 24 0 0 1 48 0"/>
+                  <path class="meter-heat" pathLength="100" d="M8 38a24 24 0 0 1 48 0"/>
+                  <path class="meter-tick" d="m13 31 3 1.4M21 20l2.1 3M32 15v4M43 20l-2.1 3M51 31l-3 1.4"/>
+                  <g class="meter-needle">
+                    <path class="meter-needle-line" d="M32 38V20"/>
+                    <circle class="meter-hub" cx="32" cy="38" r="4"/>
+                  </g>
+                </svg>
+                <span class="flames" aria-hidden="true"><i class="flame"></i><i class="flame"></i><i class="flame"></i></span>
+                <span class="embers" aria-hidden="true"><i class="ember"></i><i class="ember"></i><i class="ember"></i></span>
+              </div>
+              <div>
+                <div class="eyeline">分析项目规模后推荐</div>
+                <div class="summary" id="summary">正在读取项目规模…</div>
+              </div>
+              <div class="recommendation-value" id="recommended-value">—</div>
+            </div>
+            <div class="metrics" aria-label="上下文分析详情">
+              <div class="metric">
+                <div class="metric-label">模型</div>
+                <div class="metric-value" id="metric-model">—</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">模型上限</div>
+                <div class="metric-value" id="metric-max">—</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">自动压缩</div>
+                <div class="metric-value" id="metric-compact">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="view" id="detail-view" hidden>
+            <div class="detail-meter">
+              <div class="recommendation-icon power-gauge" id="detail-gauge" data-heat="warm" aria-label="当前选择指针表">
+                <span class="heat-glow"></span>
+                <svg class="meter-svg" viewBox="0 0 64 48" fill="none" aria-hidden="true">
+                  <path class="meter-track" pathLength="100" d="M8 38a24 24 0 0 1 48 0"/>
+                  <path class="meter-heat" pathLength="100" d="M8 38a24 24 0 0 1 48 0"/>
+                  <path class="meter-tick" d="m13 31 3 1.4M21 20l2.1 3M32 15v4M43 20l-2.1 3M51 31l-3 1.4"/>
+                  <g class="meter-needle">
+                    <path class="meter-needle-line" d="M32 38V20"/>
+                    <circle class="meter-hub" cx="32" cy="38" r="4"/>
+                  </g>
+                </svg>
+                <span class="flames" aria-hidden="true"><i class="flame"></i><i class="flame"></i><i class="flame"></i></span>
+                <span class="embers" aria-hidden="true"><i class="ember"></i><i class="ember"></i><i class="ember"></i></span>
+              </div>
+              <div class="detail-meter-copy">
+                <span>当前选择</span>
+                <strong id="detail-meter-value">512K</strong>
+              </div>
+            </div>
+            <div class="field-label">
+              <span>上下文窗口</span>
+              <span class="field-hint">预设刻度</span>
+            </div>
+            <div class="slider-wrap" id="slider-wrap" data-heat="warm">
+              <span class="slider-effect" aria-hidden="true"><span></span></span>
+              <input class="slider" id="preset-slider" type="range" min="0" max="4" step="1" value="1" aria-label="上下文预设" />
+              <div class="ticks" aria-hidden="false">
+                <button class="tick" type="button" data-index="0" data-tokens="256000">256K</button>
+                <button class="tick" type="button" data-index="1" data-tokens="512000">512K</button>
+                <button class="tick" type="button" data-index="2" data-tokens="625000">625K</button>
+                <button class="tick" type="button" data-index="3" data-tokens="750000">750K</button>
+                <button class="tick" type="button" data-index="4" data-tokens="1000000">1M</button>
+              </div>
+            </div>
+
+            <div class="exact-row">
+              <div class="exact-copy">
+                <strong>精确值</strong>
+                <span>填写 K 值，末尾 000 自动补全</span>
+              </div>
+              <label class="input-shell">
+                <input class="exact-input" id="exact-input" type="number" min="32" max="1000" step="1" value="512" inputmode="numeric" aria-label="精确上下文 K 值" />
+                <span class="input-unit">K</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="scope">生效范围：当前项目的下一次新建或恢复任务</div>
+          <div class="status" id="status" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="actions">
+          <button class="action secondary" id="reanalyze" type="button">重新分析</button>
+          <button class="action primary" id="apply" type="button">应用</button>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      const PRESETS = [256000, 512000, 625000, 750000, 1000000];
+      const MIN_EXACT_TOKENS = 32000;
+      const DEFAULT_PLAN = {
+        model: "gpt-5.6-sol",
+        task_class: "large",
+        source: "auto:large",
+        requested_tokens: 512000,
+        effective_tokens: 486400,
+        compact_at_tokens: 460800,
+        model_default_tokens: 272000,
+        model_max_tokens: 872000,
+        effective_percent: 95,
+        repo_files_seen: 248,
+        score: 5,
+        reasons: ["large-task marker"],
+        notes: [],
+        summary: "多文件或长任务，建议扩大上下文 · 已统计 248 个项目文件",
+        project_path: ".",
+      };
+
+      const elements = {
+        widget: document.getElementById("widget"),
+        trigger: document.getElementById("context-trigger"),
+        triggerValue: document.getElementById("trigger-value"),
+        autoButton: document.getElementById("mode-auto"),
+        detailButton: document.getElementById("mode-detail"),
+        autoView: document.getElementById("auto-view"),
+        detailView: document.getElementById("detail-view"),
+        summary: document.getElementById("summary"),
+        recommendedValue: document.getElementById("recommended-value"),
+        metricModel: document.getElementById("metric-model"),
+        metricMax: document.getElementById("metric-max"),
+        metricCompact: document.getElementById("metric-compact"),
+        autoGauge: document.getElementById("auto-gauge"),
+        detailGauge: document.getElementById("detail-gauge"),
+        detailMeterValue: document.getElementById("detail-meter-value"),
+        sliderWrap: document.getElementById("slider-wrap"),
+        slider: document.getElementById("preset-slider"),
+        exactInput: document.getElementById("exact-input"),
+        ticks: Array.from(document.querySelectorAll(".tick")),
+        status: document.getElementById("status"),
+        reanalyze: document.getElementById("reanalyze"),
+        apply: document.getElementById("apply"),
+      };
+
+      let mode = "auto";
+      let manualTokens = 512000;
+      let latestPlan = { ...DEFAULT_PLAN };
+      let latestToolInput = window.openai?.toolInput ?? {};
+      let nextRequestId = 1;
+      const pendingRequests = new Map();
+
+      function formatTokens(tokens) {
+        const value = Number(tokens) || 0;
+        if (value >= 1000000 && value % 1000000 === 0) return `${value / 1000000}M`;
+        if (value >= 1000) {
+          const thousands = value / 1000;
+          return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}K`;
+        }
+        return value.toLocaleString("zh-CN");
+      }
+
+      function structuredContent(result) {
+        return result?.structuredContent ?? result?.mcp_tool_result?.structuredContent ?? result?.call_tool_result?.structuredContent;
+      }
+
+      function setStatus(message = "", tone = "neutral") {
+        elements.status.textContent = message;
+        elements.status.dataset.tone = tone;
+      }
+
+      function nearestPresetIndex(tokens) {
+        let bestIndex = 0;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        PRESETS.forEach((preset, index) => {
+          const distance = Math.abs(preset - tokens);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestIndex = index;
+          }
+        });
+        return bestIndex;
+      }
+
+      function heatForTokens(tokens) {
+        if (tokens >= 1000000) return "fire";
+        if (tokens >= 750000) return "hot";
+        if (tokens >= 512000) return "warm";
+        return "calm";
+      }
+
+      function updateGauge(gauge, tokens) {
+        const bounded = Math.min(1000000, Math.max(MIN_EXACT_TOKENS, Number(tokens) || MIN_EXACT_TOKENS));
+        const progress = (bounded - MIN_EXACT_TOKENS) / (1000000 - MIN_EXACT_TOKENS);
+        const angle = -105 + progress * 210;
+        gauge.style.setProperty("--needle-angle", `${angle.toFixed(2)}deg`);
+        gauge.style.setProperty("--dash-offset", String((100 - progress * 100).toFixed(2)));
+        gauge.dataset.heat = heatForTokens(bounded);
+        gauge.setAttribute("aria-label", `指针表：${formatTokens(bounded)}`);
+      }
+
+      function setManualTokens(tokens, exact = false) {
+        const next = Math.min(1000000, Math.max(MIN_EXACT_TOKENS, Math.round(Number(tokens) || 512000)));
+        manualTokens = next;
+        elements.exactInput.value = String(Math.round(next / 1000));
+        const presetIndex = nearestPresetIndex(next);
+        elements.slider.value = String(presetIndex);
+        elements.slider.setAttribute("aria-valuetext", formatTokens(next));
+        elements.ticks.forEach((tick, index) => {
+          const preset = PRESETS[index];
+          tick.dataset.active = String(exact ? preset === next : index === presetIndex);
+        });
+        updateGauge(elements.detailGauge, next);
+        elements.detailMeterValue.textContent = formatTokens(next);
+        elements.sliderWrap.dataset.heat = heatForTokens(next);
+        if (mode === "detail" && next > Number(latestPlan.model_max_tokens || 1000000)) {
+          setStatus(`当前模型上限为 ${formatTokens(latestPlan.model_max_tokens)}，应用时会自动收紧`, "warning");
+        } else if (elements.status.dataset.tone === "warning") {
+          setStatus();
+        }
+        if (mode === "detail") elements.triggerValue.textContent = formatTokens(next);
+      }
+
+      function setMode(nextMode) {
+        mode = nextMode;
+        const isAuto = mode === "auto";
+        elements.autoButton.setAttribute("aria-pressed", String(isAuto));
+        elements.detailButton.setAttribute("aria-pressed", String(!isAuto));
+        elements.autoView.hidden = !isAuto;
+        elements.detailView.hidden = isAuto;
+        elements.triggerValue.textContent = isAuto ? "自动" : formatTokens(manualTokens);
+        elements.trigger.dataset.heat = isAuto
+          ? heatForTokens(latestPlan.requested_tokens)
+          : heatForTokens(manualTokens);
+        window.openai?.setWidgetState?.({ mode, manualTokens });
+      }
+
+      function applyPlan(plan) {
+        if (!plan || typeof plan !== "object") return;
+        latestPlan = { ...latestPlan, ...plan };
+        elements.summary.textContent = latestPlan.summary || "已完成项目规模分析";
+        elements.recommendedValue.textContent = formatTokens(latestPlan.requested_tokens);
+        elements.metricModel.textContent = latestPlan.model || "—";
+        elements.metricMax.textContent = formatTokens(latestPlan.model_max_tokens);
+        elements.metricCompact.textContent = formatTokens(latestPlan.compact_at_tokens);
+        updateGauge(elements.autoGauge, latestPlan.requested_tokens);
+        if (mode === "auto") elements.trigger.dataset.heat = heatForTokens(latestPlan.requested_tokens);
+        if (mode === "auto") elements.triggerValue.textContent = "自动";
+      }
+
+      function request(method, params) {
+        const id = nextRequestId++;
+        window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
+        return new Promise((resolve, reject) => {
+          const timeout = window.setTimeout(() => {
+            pendingRequests.delete(id);
+            reject(new Error("宿主未响应"));
+          }, 15000);
+          pendingRequests.set(id, {
+            resolve: (value) => {
+              window.clearTimeout(timeout);
+              resolve(value);
+            },
+            reject: (error) => {
+              window.clearTimeout(timeout);
+              reject(error);
+            },
+          });
+        });
+      }
+
+      async function callTool(name, args) {
+        if (window.parent !== window) {
+          try {
+            return await request("tools/call", { name, arguments: args });
+          } catch (error) {
+            if (!window.openai?.callTool) throw error;
+          }
+        }
+        if (window.openai?.callTool) return window.openai.callTool(name, args);
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
+        if (name === "apply_context") {
+          return {
+            structuredContent: {
+              ...latestPlan,
+              requested_tokens: args.mode === "manual" ? args.context_tokens : latestPlan.requested_tokens,
+            },
+          };
+        }
+        return { structuredContent: { ...latestPlan, summary: `${latestPlan.summary} · 刚刚重新分析` } };
+      }
+
+      function toolArguments() {
+        return {
+          project_path: latestPlan.project_path || latestToolInput.project_path || ".",
+          task_description: latestToolInput.task_description || "",
+          is_resume: Boolean(latestToolInput.is_resume),
+        };
+      }
+
+      async function reanalyze() {
+        setBusy(true);
+        setStatus("正在分析项目规模…");
+        try {
+          const result = await callTool("analyze_context", toolArguments());
+          const plan = structuredContent(result);
+          applyPlan(plan);
+          setStatus("分析完成，自动建议已更新", "success");
+        } catch (error) {
+          setStatus(error?.message || "分析失败", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function applySelection() {
+        const exactK = Number.parseInt(elements.exactInput.value, 10);
+        if (mode === "detail" && (!Number.isInteger(exactK) || exactK < 32 || exactK > 1000)) {
+          setStatus("精确值必须在 32 到 1,000K 之间", "error");
+          elements.exactInput.focus();
+          return;
+        }
+        if (mode === "detail") setManualTokens(exactK * 1000, true);
+
+        setBusy(true);
+        setStatus("正在写入当前项目配置…");
+        try {
+          const result = await callTool("apply_context", {
+            ...toolArguments(),
+            mode: mode === "auto" ? "auto" : "manual",
+            ...(mode === "detail" ? { context_tokens: manualTokens } : {}),
+            scope: "project",
+            confirmed: true,
+          });
+          const plan = structuredContent(result);
+          applyPlan(plan);
+          const requested = formatTokens(plan?.requested_tokens || latestPlan.requested_tokens);
+          const suffix = plan?.applied_to ? "" : "（独立预览，未写入文件）";
+          setStatus(`已设置 ${requested}；将在下一次新建或恢复任务时生效${suffix}`, "success");
+        } catch (error) {
+          setStatus(error?.message || "应用失败", "error");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function setBusy(isBusy) {
+        elements.reanalyze.disabled = isBusy;
+        elements.apply.disabled = isBusy;
+      }
+
+      window.addEventListener(
+        "message",
+        (event) => {
+          if (event.source !== window.parent) return;
+          const message = event.data;
+          if (!message || message.jsonrpc !== "2.0") return;
+
+          if (message.id !== undefined && pendingRequests.has(message.id)) {
+            const pending = pendingRequests.get(message.id);
+            pendingRequests.delete(message.id);
+            if (message.error) pending.reject(new Error(message.error.message || "工具调用失败"));
+            else pending.resolve(message.result);
+            return;
+          }
+
+          if (message.method === "ui/notifications/tool-input") {
+            latestToolInput = message.params || {};
+          }
+
+          if (message.method === "ui/notifications/tool-result") {
+            applyPlan(message.params?.structuredContent);
+          }
+        },
+        { passive: true },
+      );
+
+      elements.trigger.addEventListener("click", () => {
+        const expanded = elements.widget.dataset.expanded !== "true";
+        elements.widget.dataset.expanded = String(expanded);
+        elements.trigger.setAttribute("aria-expanded", String(expanded));
+      });
+      elements.autoButton.addEventListener("click", () => setMode("auto"));
+      elements.detailButton.addEventListener("click", () => setMode("detail"));
+      elements.slider.addEventListener("input", () => {
+        const index = Number.parseInt(elements.slider.value, 10);
+        setManualTokens(PRESETS[index], true);
+      });
+      elements.ticks.forEach((tick) => {
+        tick.addEventListener("click", () => setManualTokens(Number(tick.dataset.tokens), true));
+      });
+      elements.exactInput.addEventListener("input", () => {
+        const valueK = Number.parseInt(elements.exactInput.value, 10);
+        if (Number.isInteger(valueK) && valueK >= 32 && valueK <= 1000) setManualTokens(valueK * 1000, true);
+      });
+      elements.reanalyze.addEventListener("click", reanalyze);
+      elements.apply.addEventListener("click", applySelection);
+
+      const restoredState = window.openai?.widgetState;
+      if (restoredState?.manualTokens) setManualTokens(restoredState.manualTokens, true);
+      else setManualTokens(512000, true);
+      setMode(restoredState?.mode === "detail" ? "detail" : "auto");
+      applyPlan(window.openai?.toolOutput ?? DEFAULT_PLAN);
+    </script>
+  </body>
+</html>

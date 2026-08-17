@@ -1,11 +1,23 @@
 ---
 name: tune-task-context
-description: Give each Codex task the amount of context it actually needs. Use when someone wants Codex to estimate a context window before starting work, set a manual limit such as 128k or 512k, enlarge an old task, keep a small task lightweight, tune compaction, or apply task-, project-, profile-, or user-level model_context_window settings. Inspect the live model ceiling, let explicit user choices win, launch or resume cdx with the narrowest safe override, and verify the effective runtime window.
+description: Give each Codex task the amount of context it actually needs. Use when someone opens the context control, wants Codex to analyze a project before work starts, selects Auto or Details, moves a 256K-to-1M context slider, enters an exact token limit, changes compaction, enlarges an old task, or applies task-, project-, profile-, or user-level model_context_window settings. Inspect the live model ceiling, let explicit user choices win, apply the narrowest safe override before a new or resumed task, and verify the effective runtime window.
 ---
 
 # Tune Task Context
 
-Choose a context budget before work starts, then launch Codex with that budget. Keep the decision visible: report the requested window, effective window, compaction point, source, and any model-side clamp.
+Choose a context budget before work starts, then launch cdx with that budget. Prefer the interactive **上下文** control when its MCP tools are available; keep the CLI launcher as the complete fallback. Keep the decision visible: report the requested window, effective window, compaction point, source, and any model-side clamp.
+
+## Open the context control
+
+When the user asks to open, show, inspect, or adjust context and the plugin tools are available:
+
+1. Resolve the absolute current project path without reading file contents.
+2. Call `show_context_control` with the project path, next-task description, and resume state; it performs the initial analysis and renders the **上下文** card once.
+3. Use `analyze_context` for a headless estimate or when the card requests **重新分析**.
+4. Treat **自动** as an estimate from task-scale signals. Treat **详情** as an explicit override; the slider presets are 256K, 512K, 625K, 750K, and 1M. The exact field accepts an integer K value from 32 to 1,000 and automatically appends the final three zeroes.
+5. Call `apply_context` only after the user presses **应用** or explicitly confirms a value. Default to project scope. State that it affects the next new or resumed task, never the task already running.
+
+Keep all three tools useful without rendered UI. If the tools are unavailable, use `scripts/context_launcher.py` directly.
 
 ## Respect the lifecycle boundary
 
@@ -48,6 +60,14 @@ python3 scripts/context_launcher.py --context auto --dry-run -- "Fix the typo in
 ```
 
 Use `--compact-at` only when the user explicitly asks for a separate threshold. Clamp it below both the requested window and the model's effective safety limit.
+
+To persist a confirmed selection for the next task in the current project without launching a second process:
+
+```bash
+python3 scripts/context_launcher.py --cwd <project> --context 625k --apply-config project -- "Next task"
+```
+
+This patches only `model_context_window` and `model_auto_compact_token_limit` at the top level of `.codex/config.toml`.
 
 ## Apply the narrowest scope
 
@@ -103,3 +123,4 @@ If clamped, say so directly. Never describe a marketed total context figure as l
 - Never assume a model's limit from its name; catalogs and account availability can change.
 - Never silently replace an explicit user value with an estimate.
 - Never launch a second billable task during `--dry-run` or validation.
+- Never call `apply_context` without an explicit confirmation signal.

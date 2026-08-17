@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "tune-task-context": {
+      "command": "node",
+      "args": [
+        "./dist/server.mjs"
+      ],
+      "cwd": ".",
+      "env_vars": [
+        "CODEX_HOME",
+        "CDX_BIN",
+        "PYTHON"
+      ],
+      "tool_timeout_sec": 30
+    }
+  }
+}

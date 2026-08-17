@@ -1,0 +1,15 @@
+{
+  "name": "tune-task-context",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild mcp/server.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/server.mjs",
+    "test": "python3 -m unittest discover -s tests -p 'test_*.py'"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.5",
+    "esbuild": "^0.25.9",
+    "zod": "^3.25.76"
+  }
+}
